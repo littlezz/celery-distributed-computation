@@ -1,5 +1,5 @@
 from node import node_status
-from coordinator import server
+from coordinator.server import run_server
 import click
 
 
@@ -17,7 +17,7 @@ def node():
 @manage.command()
 def server():
     click.echo('server start!')
-    server.run_server()
+    run_server()
 
 
 if __name__ == '__main__':

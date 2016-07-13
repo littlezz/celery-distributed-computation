@@ -5,6 +5,7 @@ from common import state
 import json
 import psutil
 from .setttings import *
+import logging
 
 
 LOCALHOST = 'localhost'
@@ -49,11 +50,13 @@ async def ws_node_status(request):
         try:
             ws.send_str(json.dumps(request.app['node_status']))
         except RuntimeError:
+            logging.debug('ws lose connect')
             break
         await asyncio.sleep(1)
 
 
 async def welcome(request):
+    # TODO:
     pass
 
 
@@ -72,6 +75,11 @@ def app_update_router(app):
     app.router.add_route('GET', '/ws_node_status', ws_node_status)
 
 
+def on_shutdown(app):
+    app['update_coordinator_cup_task'].cancel()
+    # TODO: cancel all celery task on node
+
+
 def init_app():
     app = web.Application()
     app_update_router(app)
@@ -82,7 +90,10 @@ def init_app():
     app['node_status'] = node_status
     app['node_ws_manager'] = dict()
 
-    app.loop.create_task(update_coordinator_cpu_info(node_status))
+    task = app.loop.create_task(update_coordinator_cpu_info(node_status))
+    app['update_coordinator_cpu_task'] = task
+
+    app.on_shutdown.append(on_shutdown)
     return app
 
 
