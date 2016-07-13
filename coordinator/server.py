@@ -76,7 +76,7 @@ def app_update_router(app):
 
 
 def on_shutdown(app):
-    app['update_coordinator_cup_task'].cancel()
+    app['update_coordinator_cpu_task'].cancel()
     # TODO: cancel all celery task on node
 
 
