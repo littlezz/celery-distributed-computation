@@ -45,13 +45,6 @@ async def ws_node_status(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
 
-    # async for msg in ws:
-    #     if msg.tp == aiohttp.MsgType.text:
-    #         status = msg.data
-    #
-    #     elif msg.tp == aiohttp.MsgType.error:
-    #         status = state.node.OFFLINE
-    #         ws_manager.pop(host)
     while True:
         try:
             ws.send_str(json.dumps(request.app['node_status']))
