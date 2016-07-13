@@ -76,7 +76,10 @@ def app_update_router(app):
 
 
 def on_shutdown(app):
-    app['update_coordinator_cpu_task'].cancel()
+    long_run_tasks = app['long_run_tasks']
+    for task in long_run_tasks:
+        task.cancel()
+
     # TODO: cancel all celery task on node
 
 
@@ -90,8 +93,9 @@ def init_app():
     app['node_status'] = node_status
     app['node_ws_manager'] = dict()
 
-    task = app.loop.create_task(update_coordinator_cpu_info(node_status))
-    app['update_coordinator_cpu_task'] = task
+    long_run_tasks = list()
+    long_run_tasks.append(app.loop.create_task(update_coordinator_cpu_info(node_status)))
+    app['long_run_tasks'] = long_run_tasks
 
     app.on_shutdown.append(on_shutdown)
     return app
