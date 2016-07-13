@@ -60,6 +60,10 @@ async def welcome(request):
     pass
 
 
+async def start_task(request):
+    pass
+
+
 async def update_coordinator_cpu_info(node_status):
     while True:
         cpu_info = psutil.cpu_percent()
@@ -71,6 +75,7 @@ async def update_coordinator_cpu_info(node_status):
 
 def app_update_router(app):
     app.router.add_route('GET', '/', welcome)
+    app.router.add_route('GET', '/start', start_task)
     app.router.add_route('GET', '/ws_receive_node_status', receive_node_status)
     app.router.add_route('GET', '/ws_node_status', ws_node_status)
 
