@@ -1,0 +1,1 @@
+STATIC_NODE_HOSTS = []

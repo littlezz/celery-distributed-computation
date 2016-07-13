@@ -3,7 +3,11 @@ import aiohttp
 from aiohttp import web
 from common import state
 import json
+import psutil
+from .setttings import *
 
+
+LOCALHOST = 'localhost'
 
 
 async def receive_node_status(request):
@@ -35,7 +39,7 @@ async def receive_node_status(request):
             node_status.update({host:status})
 
 
-async def node_status(request):
+async def ws_node_status(request):
     "send node status to front-end"
 
     ws = web.WebSocketResponse()
@@ -56,4 +60,43 @@ async def node_status(request):
         await asyncio.sleep(1)
 
 
+async def welcome(request):
+    pass
 
+
+async def update_coordinator_cpu_info(node_status):
+    while True:
+        cpu_info = psutil.cpu_percent()
+        node_status.update({LOCALHOST:cpu_info})
+        await asyncio.sleep(1)
+
+
+
+
+def app_update_router(app):
+    app.router.add_route('GET', '/', welcome)
+    app.router.add_route('GET', '/ws_receive_node_status', receive_node_status)
+    app.router.add_route('GET', '/ws_node_status', ws_node_status)
+
+
+def init_app():
+    app = web.Application()
+    app_update_router(app)
+
+    # init
+    node_status = dict()
+    node_status.update((host, state.node.OFFLINE) for host in STATIC_NODE_HOSTS)
+    app['node_status'] = node_status
+    app['node_ws_manager'] = dict()
+
+    app.loop.create_task(update_coordinator_cpu_info(node_status))
+    return app
+
+
+def run_server():
+    app = init_app()
+    web.run_app(app)
+
+
+if __name__ == '__main__':
+    run_server()
