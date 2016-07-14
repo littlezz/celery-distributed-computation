@@ -4,9 +4,11 @@ from aiohttp import web
 from common import state
 import json
 import psutil
+
+from common.decorator import set_debug
 from .setttings import *
 import logging
-
+logger = logging.getLogger(__name__)
 
 LOCALHOST = 'localhost'
 
@@ -50,7 +52,7 @@ async def ws_node_status(request):
         try:
             ws.send_str(json.dumps(request.app['node_status']))
         except RuntimeError:
-            logging.debug('ws lose connect')
+            logger.debug('ws lose connect')
             break
         await asyncio.sleep(1)
 
@@ -105,8 +107,9 @@ def init_app():
     app.on_shutdown.append(on_shutdown)
     return app
 
-
+@set_debug
 def run_server():
+    logger.debug('debug mode start')
     app = init_app()
     web.run_app(app)
 

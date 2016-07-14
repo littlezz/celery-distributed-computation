@@ -2,7 +2,11 @@ import asyncio
 import aiohttp
 from aiohttp import client
 import psutil
+
+from common.decorator import set_debug
 from .settings import *
+import logging
+logger = logging.getLogger(__name__)
 
 
 async def send_status(ws):
@@ -36,8 +40,9 @@ async def communicate():
 
 
 
-
+@set_debug
 def run():
+    logger.debug('debug mode!')
     loop = asyncio.get_event_loop()
     loop.create_task(communicate())
     loop.run_forever()
