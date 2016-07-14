@@ -6,7 +6,7 @@ import psutil
 from common.decorator import set_debug
 from .settings import *
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('node')
 
 
 async def send_status(ws):

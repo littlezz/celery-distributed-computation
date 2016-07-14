@@ -8,7 +8,7 @@ import psutil
 from common.decorator import set_debug
 from .setttings import *
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger('coordinator')
 
 LOCALHOST = 'localhost'
 
