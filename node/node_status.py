@@ -14,7 +14,9 @@ async def send_status(ws):
         cpu_percent = str(psutil.cpu_percent())
         try:
             ws.send_str(cpu_percent)
+            logger.debug('send cpu status, %s', cpu_percent)
         except RuntimeError:
+            logger.info('server shutdown, return')
             return
         await asyncio.sleep(1)
 
@@ -41,6 +43,8 @@ async def communicate():
         elif msg.tp == aiohttp.MsgType.error:
             break
     write_task.cancel()
+    session.close()
+
 
 
 

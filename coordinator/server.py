@@ -25,17 +25,18 @@ async def receive_node_status(request):
 
     ws = web.WebSocketResponse()
     await ws.prepare(request)
+    logger.info('node %s is online', host)
 
     ws_manager = request.app['node_ws_manager']
     ws_manager.update({host:ws})
     node_status = request.app['node_status']
 
+
     async for msg in ws:
         status = False
         if msg.tp == aiohttp.MsgType.text:
             status = msg.data
-            logger.debug('GOT!, %s', status)
-            ws.send_str('server got your msg')
+            # ws.send_str('server got your msg')
 
         elif msg.tp == aiohttp.MsgType.error:
             status = state.node.OFFLINE
@@ -55,7 +56,6 @@ async def ws_node_status(request):
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     logger.debug('Got a connect')
-    _wsm.add(ws)
     ws.send_str(json.dumps(request.app['node_status']))
 
     try:
@@ -123,6 +123,7 @@ def init_app():
 
     app.on_shutdown.append(on_shutdown)
     return app
+
 
 @set_debug
 def run_server():
