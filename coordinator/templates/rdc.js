@@ -11,22 +11,20 @@
     return ws.onmessage = function(e) {
       var msg;
       msg = JSON.parse(e.data);
-      $('#ws').text(msg.localhost);
+      $('.chart').data('easyPieChart').update(msg.localhost);
+      $('#percent1').text(msg.localhost);
       console.log(msg);
       return ws.send('alive');
     };
   });
 
   $(function() {
-    var x;
-    $('.chart').easyPieChart({
-      animate: 2000,
-      size: 200
+    return $('.chart').easyPieChart({
+      animate: 600,
+      size: 200,
+      barColor: '#ef1e25',
+      lineWidth: 5
     });
-    x = function() {
-      return $('.chart').data('easyPieChart').update(40);
-    };
-    return setTimeout(x, 1000);
   });
 
 }).call(this);
