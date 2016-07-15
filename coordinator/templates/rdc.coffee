@@ -11,3 +11,14 @@ $ ->
     $('#ws').text(msg.localhost)
     console.log msg
     ws.send('alive')
+
+
+$ ->
+  $('.chart').easyPieChart({
+        animate: 2000,
+        size:200,
+    });
+  x = () ->
+        $('.chart').data('easyPieChart').update(40)
+  setTimeout(x, 1000)
+

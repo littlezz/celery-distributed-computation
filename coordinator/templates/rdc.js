@@ -17,6 +17,18 @@
     };
   });
 
+  $(function() {
+    var x;
+    $('.chart').easyPieChart({
+      animate: 2000,
+      size: 200
+    });
+    x = function() {
+      return $('.chart').data('easyPieChart').update(40);
+    };
+    return setTimeout(x, 1000);
+  });
+
 }).call(this);
 
 //# sourceMappingURL=rdc.js.map
