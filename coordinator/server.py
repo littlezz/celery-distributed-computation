@@ -67,6 +67,7 @@ async def ws_node_status(request):
     except RuntimeError:
         logger.debug('ws lose connect')
     logger.debug('exit a connect')
+    return ws
 
 
 @aiohttp_jinja2.template('welcome.jinja2')
