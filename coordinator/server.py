@@ -13,7 +13,6 @@ logger = logging.getLogger('coordinator')
 
 LOCALHOST = 'localhost'
 
-_wsm = set()
 
 async def receive_node_status(request):
     "receive node status from node"
@@ -35,6 +34,8 @@ async def receive_node_status(request):
         status = False
         if msg.tp == aiohttp.MsgType.text:
             status = msg.data
+            logger.debug('GOT!, %s', status)
+            ws.send_str('server got your msg')
 
         elif msg.tp == aiohttp.MsgType.error:
             status = state.node.OFFLINE
@@ -42,6 +43,10 @@ async def receive_node_status(request):
 
         if status is not False:
             node_status.update({host:status})
+
+    logger.debug('Connect gone, mark as offline')
+    node_status.update({host: state.node.OFFLINE})
+    return ws
 
 
 async def ws_node_status(request):

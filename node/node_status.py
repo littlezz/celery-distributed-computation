@@ -12,11 +12,22 @@ logger = logging.getLogger('node')
 async def send_status(ws):
     while True:
         cpu_percent = str(psutil.cpu_percent())
-        ws.send_str(cpu_percent)
+        try:
+            ws.send_str(cpu_percent)
+        except RuntimeError:
+            return
         await asyncio.sleep(1)
 
 
-async def receive_command(ws):
+# reference http://aiohttp.readthedocs.io/en/stable/client.html#websockets
+# Which says that Websocket client can only use websocket task for both reading and writing
+async def communicate():
+    session = client.ClientSession()
+    ws  = await session.ws_connect(COORDINATOR_SERVER_URL)
+    logger.debug('ws connect')
+    ws.send_str('client ok, connect')
+    write_task = asyncio.ensure_future(send_status(ws))
+
     async for msg in ws:
         if msg.tp == aiohttp.MsgType.text:
             # TODO:
@@ -24,19 +35,12 @@ async def receive_command(ws):
                 await ws.close()
                 break
             else:
-                ws.send_str(msg.data + '/answer')
+                logger.debug('recieve command %s', msg.data)
         elif msg.tp == aiohttp.MsgType.closed:
             break
         elif msg.tp == aiohttp.MsgType.error:
             break
-
-
-async def communicate():
-    session = client.ClientSession()
-    ws  = await session.ws_connect(COORDINATOR_SERVER_URL)
-    asyncio.ensure_future(send_status(ws))
-    asyncio.ensure_future(receive_command(ws))
-
+    write_task.cancel()
 
 
 

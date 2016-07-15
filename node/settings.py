@@ -1,2 +1,2 @@
-COORDINATOR_SERVER_URL = 'http://localhost:8000/url'
+COORDINATOR_SERVER_URL = 'ws://localhost:8080/ws_receive_node_status'
 
