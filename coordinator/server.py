@@ -4,7 +4,8 @@ from aiohttp import web
 from common import state
 import json
 import psutil
-
+import aiohttp_jinja2
+import jinja2
 from common.decorator import set_debug
 from .setttings import *
 import logging
@@ -12,6 +13,7 @@ logger = logging.getLogger('coordinator')
 
 LOCALHOST = 'localhost'
 
+_wsm = set()
 
 async def receive_node_status(request):
     "receive node status from node"
@@ -47,16 +49,22 @@ async def ws_node_status(request):
 
     ws = web.WebSocketResponse()
     await ws.prepare(request)
+    logger.debug('Got a connect')
+    _wsm.add(ws)
+    ws.send_str(json.dumps(request.app['node_status']))
 
-    while True:
-        try:
+    try:
+        async for m in ws:
+            await asyncio.sleep(1)
             ws.send_str(json.dumps(request.app['node_status']))
-        except RuntimeError:
-            logger.debug('ws lose connect')
-            break
-        await asyncio.sleep(1)
+        logger.debug('finish connect')
+
+    except RuntimeError:
+        logger.debug('ws lose connect')
+    logger.debug('exit a connect')
 
 
+@aiohttp_jinja2.template('welcome.jinja2')
 async def welcome(request):
     # TODO:
     pass
@@ -80,12 +88,14 @@ def app_update_router(app):
     app.router.add_route('GET', '/start', start_task)
     app.router.add_route('GET', '/ws_receive_node_status', receive_node_status)
     app.router.add_route('GET', '/ws_node_status', ws_node_status)
+    app.router.add_static('/', 'coordinator/templates')
 
 
 def on_shutdown(app):
     long_run_tasks = app['long_run_tasks']
     for task in long_run_tasks:
         task.cancel()
+    logger.debug('cancel long run tasks')
 
     # TODO: cancel all celery task on node
 
@@ -104,6 +114,8 @@ def init_app():
     long_run_tasks.append(app.loop.create_task(update_coordinator_cpu_info(node_status)))
     app['long_run_tasks'] = long_run_tasks
 
+    aiohttp_jinja2.setup(app, loader=jinja2.PackageLoader('coordinator', 'templates'))
+
     app.on_shutdown.append(on_shutdown)
     return app
 
@@ -111,7 +123,7 @@ def init_app():
 def run_server():
     logger.debug('debug mode start')
     app = init_app()
-    web.run_app(app)
+    web.run_app(app, shutdown_timeout=1)
 
 
 if __name__ == '__main__':
