@@ -1,5 +1,6 @@
 import logging
-from functools import wraps, partial
+from functools import wraps
+
 
 def set_debug(func):
     @wraps(func)
