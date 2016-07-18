@@ -100,7 +100,6 @@ class ClassificationMixin(BaseStatModel):
         self._label_map = dict()
         super().__init__(*args, **kwargs)
 
-
     def _get_unique_sorted_label(self):
         y = self._raw_train_y
         unique_label = np.unique(y)
@@ -131,6 +130,7 @@ class ClassificationMixin(BaseStatModel):
         sorted_label = self._get_unique_sorted_label()
         return sorted_label[index].reshape((-1, 1))
 
+
 class BaseNeuralNetwork(ClassificationMixin, BaseStatModel):
     def __init__(self, *args, n_iter=10, **kwargs):
         self.alpha = kwargs.pop('alpha')
@@ -150,7 +150,8 @@ class BaseNeuralNetwork(ClassificationMixin, BaseStatModel):
     def rss(self):
         raise NotImplementedError
 
-class BaseMiniBatchNeuralNetwork(BaseNeuralNetwork):
+
+class MiniBatchNeuralNetwork(BaseNeuralNetwork):
     """
     Depend on many book.
     use mini batch update instead af batch update.
@@ -169,11 +170,6 @@ class BaseMiniBatchNeuralNetwork(BaseNeuralNetwork):
     def random_weight_matrix(shape):
         return np.random.uniform(-0.7, 0.7, shape)
 
-    def _forward_propagation(self, x):
-        raise NotImplementedError
-
-    def _back_propagation(self, target, layer_output):
-        raise NotImplementedError
 
     def _one_iter_train(self):
         X = self.train_x
@@ -185,8 +181,6 @@ class BaseMiniBatchNeuralNetwork(BaseNeuralNetwork):
             layer_output = self._forward_propagation(x)
             self._back_propagation(target=target, layer_output=layer_output)
 
-    def _init_theta(self):
-        raise NotImplementedError
 
     def train(self):
         self._init_theta()
@@ -206,7 +200,6 @@ class BaseMiniBatchNeuralNetwork(BaseNeuralNetwork):
         y[y < eps] = eps
         return - np.sum(np.log(y) * self.train_y)
 
-class MiniBatchNN(BaseMiniBatchNeuralNetwork):
     def _init_theta(self):
         """
         theta is weights
