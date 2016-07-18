@@ -8,8 +8,10 @@ import aiohttp_jinja2
 import jinja2
 from common.decorator import set_debug
 from .setttings import *
+from PIL import Image
 import logging
 logger = logging.getLogger('coordinator')
+
 
 LOCALHOST = 'localhost'
 
@@ -80,6 +82,24 @@ async def start_task(request):
     pass
 
 
+async def upload_image(request):
+    data = await request.post()
+
+    file = data['image'].file
+    img = Image.open(file)
+    print(img.size)
+
+    # process image
+    gray = img.resize((16, 16)).convert('L')
+
+
+    # TODO: submit task
+
+
+
+    return web.Response(text='ok size {}'.format(img.size))
+
+
 async def update_coordinator_cpu_info(node_status):
     while True:
         cpu_info = psutil.cpu_percent()
@@ -94,6 +114,8 @@ def app_update_router(app):
     app.router.add_route('GET', '/start', start_task)
     app.router.add_route('GET', '/ws_receive_node_status', receive_node_status)
     app.router.add_route('GET', '/ws_node_status', ws_node_status)
+    app.router.add_route('POST', '/upload', upload_image)
+
     app.router.add_static('/', 'coordinator/templates')
 
 
