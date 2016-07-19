@@ -2,6 +2,9 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.special import expit as sigmoid
 from itertools import chain
+from celerytask.celery import app
+from celery.contrib.methods import task_method
+from celery.task import chord
 
 
 class Result:
@@ -176,10 +179,39 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
         y = self.train_y
         mini_batch = self.mini_batch
         for j in range(0, self.N, mini_batch):
-            x = X[j: j + mini_batch]
-            target = y[j: j + mini_batch]
-            layer_output = self._forward_propagation(x)
-            self._back_propagation(target=target, layer_output=layer_output)
+            # x = X[j: j + mini_batch]
+            # target = y[j: j + mini_batch]
+            # layer_output = self._forward_propagation(x)
+            # self._back_propagation(target=target, layer_output=layer_output)
+
+            task = chord(self._one_forward_and_back.s(X[k], y[k]) for k in range(j, j+mini_batch))(self._sum_update.s())
+            print(task.get())
+
+
+    @app.task(filter=task_method)
+    def _one_forward_and_back(self, x, y):
+        """
+        forward and back, return (grad, intercept)
+        :param x:
+        :param y:
+        :return: (grad, intercept)
+        """
+        layer_output = self._forward_propagation(x)
+        return self._back_propagation(layer_output=layer_output, target=y)
+
+
+    @app.task(filter=task_method)
+    def _sum_update(self, values):
+        for (theta, intercept), *i in zip(reversed(self.thetas), *values):
+            tt = ti = 0
+            for (theta_i, intercept_i) in i:
+                tt+=theta_i
+                ti+=intercept_i
+            tt/=len(i)
+            ti/=len(i)
+            theta -= tt
+            intercept -= ti
+
 
 
     def train(self):
@@ -228,9 +260,15 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
     def _back_propagation(self, target, layer_output):
         delta = -(target - layer_output[-1])
 
+        ret = []
+
         for (theta, intercept), a in zip(reversed(self.thetas), reversed(layer_output[:-1])):
             grad = a.T @ delta
             intercept_grad = np.sum(delta, axis=0)
             delta = ((1 - a) * a) * (delta @ theta.T)
-            theta -= grad * self.alpha / self.mini_batch
-            intercept -= intercept_grad * self.alpha / self.mini_batch
+            # theta -= grad * self.alpha / self.mini_batch
+            # intercept -= intercept_grad * self.alpha / self.mini_batch
+            ret.append((grad * self.alpha, intercept_grad * self.alpha))
+
+        return ret
+
