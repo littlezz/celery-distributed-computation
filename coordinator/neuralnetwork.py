@@ -3,8 +3,12 @@ from scipy.sparse import csr_matrix
 from scipy.special import expit as sigmoid
 from itertools import chain
 from celerytask.celery import app
-from celery.contrib.methods import task_method
-from celery.task import chord
+from celery.contrib.methods import task_method, task
+from celery import chord, group
+from common.redis_cache import pickle_redis_cache, _pickle_get_pipe, _pickle_set_pipe
+from celerytask import cache, lock
+from collections import deque
+
 
 
 class Result:
@@ -164,6 +168,12 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
     http://ufldl.stanford.edu/wiki/index.php/Backpropagation_Algorithm
     https://www.coursera.org/learn/machine-learning/lecture/1z9WW/backpropagation-algorithm
     """
+
+    train_x = pickle_redis_cache('train_x')
+    train_y = pickle_redis_cache('train_y')
+    thetas = pickle_redis_cache('thetas')
+    temp_thetas = pickle_redis_cache('temp_thetas')
+
     def __init__(self, *args, mini_batch=10, hidden_layer_shape=None, **kwargs):
         self.mini_batch = mini_batch
         self.hidden_layer_shape = hidden_layer_shape or list()
@@ -184,34 +194,48 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
             # layer_output = self._forward_propagation(x)
             # self._back_propagation(target=target, layer_output=layer_output)
 
-            task = chord(self._one_forward_and_back.s(X[k], y[k]) for k in range(j, j+mini_batch))(self._sum_update.s())
-            print(task.get())
+            vals = group(self._one_forward_and_back.s(k) for k in range(j, j+mini_batch))()
+            print(vals.get())
+            cache.set('now', j)
+            task = self._sum_update.delay().get()
+            # r = self._one_forward_and_back(j)
+            # self._sum_update([j])
+            # print(self.add.s(3).delay().get())
 
 
     @app.task(filter=task_method)
-    def _one_forward_and_back(self, x, y):
+    def _one_forward_and_back(self, k):
         """
         forward and back, return (grad, intercept)
-        :param x:
-        :param y:
-        :return: (grad, intercept)
         """
+        x = self.train_x[k: k+1]
+        y = self.train_y[k: k+1]
         layer_output = self._forward_propagation(x)
-        return self._back_propagation(layer_output=layer_output, target=y)
+        ret = self._back_propagation(layer_output=layer_output, target=y)
+        cache.set('grad'+str(k), _pickle_set_pipe(ret))
+        return k
+
 
 
     @app.task(filter=task_method)
-    def _sum_update(self, values):
-        for (theta, intercept), *i in zip(reversed(self.thetas), *values):
+    def _sum_update(self):
+        value = int(cache.get('now'))
+        values = range(value, value+self.mini_batch)
+        grads = []
+        for point  in values:
+            grads.append(_pickle_get_pipe(cache.get('grad' + str(point))))
+
+        new_thetas = []
+        for (theta, intercept), *i in zip(reversed(self.thetas), *grads):
             tt = ti = 0
             for (theta_i, intercept_i) in i:
                 tt+=theta_i
                 ti+=intercept_i
-            tt/=len(i)
-            ti/=len(i)
             theta -= tt
             intercept -= ti
+            new_thetas.append((theta, intercept))
 
+        self.thetas = list(reversed(new_thetas))
 
 
     def train(self):
@@ -261,14 +285,25 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
         delta = -(target - layer_output[-1])
 
         ret = []
-
+        # nn = deque()
         for (theta, intercept), a in zip(reversed(self.thetas), reversed(layer_output[:-1])):
             grad = a.T @ delta
             intercept_grad = np.sum(delta, axis=0)
             delta = ((1 - a) * a) * (delta @ theta.T)
-            # theta -= grad * self.alpha / self.mini_batch
-            # intercept -= intercept_grad * self.alpha / self.mini_batch
-            ret.append((grad * self.alpha, intercept_grad * self.alpha))
+            theta -= grad * self.alpha / self.mini_batch
+            intercept -= intercept_grad * self.alpha / self.mini_batch
+            ret.append((grad * self.alpha / self.mini_batch, intercept_grad * self.alpha / self.mini_batch))
+            # nn.appendleft((grad * self.alpha / self.mini_batch, intercept_grad * self.alpha / self.mini_batch))
+            # new_thetas.append((theta, intercept))
+
+        # gg= []
+        # with lock:
+        #     thetas = self.thetas
+        #     for (theta, intercept), (dt, di) in zip(thetas, nn):
+        #         theta = theta - dt
+        #         intercept = intercept - di
+        #         gg.append((theta, intercept))
+        #     self.thetas = list(reversed(gg))
 
         return ret
 
