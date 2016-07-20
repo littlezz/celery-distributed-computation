@@ -50,7 +50,7 @@ async def receive_node_status(request):
             node_status.update({NODE_MAP[host]:status})
 
     logger.debug('Connect gone, mark as offline')
-    node_status.update({host: state.node.OFFLINE})
+    node_status.update({NODE_MAP[host]: state.node.OFFLINE})
     return ws
 
 
@@ -159,7 +159,7 @@ def init_app():
 
     # init
     node_status = dict()
-    node_status.update((host, state.node.OFFLINE) for host in STATIC_NODE_HOSTS)
+    node_status.update((NODE_MAP[host], state.node.OFFLINE) for host in STATIC_NODE_HOSTS)
     app['node_status'] = node_status
     app['node_ws_manager'] = dict()
     app['nn_status'] = dict()
