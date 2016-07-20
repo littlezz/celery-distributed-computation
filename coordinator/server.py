@@ -8,6 +8,7 @@ import aiohttp_jinja2
 import jinja2
 from common.decorator import set_debug
 from .setttings import *
+from .neuralnetwork import start_nn
 from PIL import Image
 import logging
 logger = logging.getLogger('coordinator')
@@ -79,7 +80,9 @@ async def welcome(request):
 
 
 async def start_task(request):
-    pass
+    nn = start_nn()
+    request.app['nn'] = nn
+    return web.Response(text='ok')
 
 
 async def upload_image(request):

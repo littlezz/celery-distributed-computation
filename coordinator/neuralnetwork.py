@@ -173,6 +173,9 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
     train_y = pickle_redis_cache('train_y')
     thetas = pickle_redis_cache('thetas')
     temp_thetas = pickle_redis_cache('temp_thetas')
+    mini_batch = pickle_redis_cache('mini_batch')
+    _raw_train_x = pickle_redis_cache('_raw_train_x')
+    _raw_train_y = pickle_redis_cache('_raw_train_y')
 
     def __init__(self, *args, mini_batch=10, hidden_layer_shape=None, **kwargs):
         self.mini_batch = mini_batch
@@ -237,7 +240,7 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
 
         self.thetas = list(reversed(new_thetas))
 
-
+    @app.task(filter=task_method)
     def train(self):
         self._init_theta()
         for r in range(self.n_iter):
@@ -307,3 +310,23 @@ class MiniBatchNeuralNetwork(BaseNeuralNetwork):
 
         return ret
 
+
+# _start = None
+#
+# from esl_model.datasets import ZipCodeDataSet
+# d = ZipCodeDataSet()
+# nn = MiniBatchNeuralNetwork(train_x=d.train_x, train_y=d.train_y, n_iter=50, n_class=10,
+#                           hidden_layer_shape=[12], mini_batch=20, alpha=0.38)
+#
+# nn.pre_processing()
+
+def start_nn(wait=0):
+    global _start
+    if _start is not None:
+        return _start
+
+    t = nn.train.delay()
+    if wait:
+        t.get()
+    _start = nn
+    return nn
