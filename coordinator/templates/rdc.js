@@ -9,23 +9,40 @@
     h = window.location.host;
     ws = new WebSocket("ws://" + h + "/ws_node_status");
     return ws.onmessage = function(e) {
-      var msg, pert;
+      var fn, i, ip, len, msg, nodes_ip;
       msg = JSON.parse(e.data);
-      pert = msg.node_status.localhost;
-      $('.chart').data('easyPieChart').update(pert);
-      $('#percent1').text(pert);
+      nodes_ip = Object.keys(msg.node_status);
+      fn = function(ip) {
+        var pert;
+        pert = msg.node_status[ip];
+        $("#" + ip).data('easyPieChart').update(pert);
+        return $("#" + ip).find('span').text(pert);
+      };
+      for (i = 0, len = nodes_ip.length; i < len; i++) {
+        ip = nodes_ip[i];
+        fn(ip);
+      }
       console.log(msg);
       return ws.send('alive');
     };
   });
 
   $(function() {
-    return $('.chart').easyPieChart({
-      animate: 600,
-      size: 200,
-      barColor: '#ef1e25',
-      lineWidth: 5
-    });
+    var i, len, name, ref, results;
+    ref = ['localhost', 'node1', 'node2'];
+    results = [];
+    for (i = 0, len = ref.length; i < len; i++) {
+      name = ref[i];
+      results.push((function(name) {
+        return $('#' + name).easyPieChart({
+          animate: 600,
+          size: 200,
+          barColor: '#ef1e25',
+          lineWidth: 5
+        });
+      })(name));
+    }
+    return results;
   });
 
 }).call(this);

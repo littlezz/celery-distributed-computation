@@ -47,7 +47,7 @@ async def receive_node_status(request):
             ws_manager.pop(host)
 
         if status is not False:
-            node_status.update({host:status})
+            node_status.update({NODE_MAP[host]:status})
 
     logger.debug('Connect gone, mark as offline')
     node_status.update({host: state.node.OFFLINE})
@@ -135,10 +135,10 @@ async def update_nn_status(app):
 
 def app_update_router(app):
     app.router.add_route('GET', '/', welcome)
-    app.router.add_route('GET', '/start', start_task)
+    # app.router.add_route('GET', '/start', start_task)
     app.router.add_route('GET', '/ws_receive_node_status', receive_node_status)
     app.router.add_route('GET', '/ws_node_status', ws_node_status)
-    app.router.add_route('POST', '/upload', upload_image)
+    # app.router.add_route('POST', '/upload', upload_image)
 
     app.router.add_static('/', 'coordinator/templates')
 
