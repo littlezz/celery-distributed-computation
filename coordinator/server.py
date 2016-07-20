@@ -8,7 +8,8 @@ import aiohttp_jinja2
 import jinja2
 from common.decorator import set_debug
 from .setttings import *
-from .neuralnetwork import start_nn
+from celerytask.celery import cache, app as celery_app
+from .neuralnetwork import nn, train
 from PIL import Image
 import logging
 logger = logging.getLogger('coordinator')
@@ -56,15 +57,24 @@ async def receive_node_status(request):
 async def ws_node_status(request):
     "send node status to front-end"
 
+    def _structure_msg():
+        msg =  {
+            'node_status':request.app['node_status'],
+            'nn_status': request.app['nn_status']
+        }
+        return json.dumps(msg)
+
     ws = web.WebSocketResponse()
     await ws.prepare(request)
     logger.debug('Got a connect')
-    ws.send_str(json.dumps(request.app['node_status']))
+
+
+    ws.send_str(_structure_msg())
 
     try:
         async for m in ws:
             await asyncio.sleep(1)
-            ws.send_str(json.dumps(request.app['node_status']))
+            ws.send_str(_structure_msg())
         logger.debug('finish connect')
 
     except RuntimeError:
@@ -80,9 +90,7 @@ async def welcome(request):
 
 
 async def start_task(request):
-    nn = start_nn()
-    request.app['nn'] = nn
-    return web.Response(text='ok')
+    pass
 
 
 async def upload_image(request):
@@ -110,6 +118,19 @@ async def update_coordinator_cpu_info(node_status):
         await asyncio.sleep(1)
 
 
+async def update_nn_status(app):
+    old = int(cache.get('n_s'))
+    nn_status = app['nn_status']
+    while True:
+        new = int(cache.get('n_s'))
+        speed = (new - old) / 2
+        nn_status.update(dict(speed=speed, rss=nn.rss))
+        logger.debug(':nn_status %s', nn_status)
+        old = new
+        await asyncio.sleep(1.99)
+
+
+
 
 
 def app_update_router(app):
@@ -128,6 +149,7 @@ def on_shutdown(app):
         task.cancel()
     logger.debug('cancel long run tasks')
 
+    celery_app.control.purge()
     # TODO: cancel all celery task on node
 
 
@@ -140,13 +162,15 @@ def init_app():
     node_status.update((host, state.node.OFFLINE) for host in STATIC_NODE_HOSTS)
     app['node_status'] = node_status
     app['node_ws_manager'] = dict()
+    app['nn_status'] = dict()
 
     long_run_tasks = list()
     long_run_tasks.append(app.loop.create_task(update_coordinator_cpu_info(node_status)))
+    long_run_tasks.append(app.loop.create_task(update_nn_status(app)))
     app['long_run_tasks'] = long_run_tasks
 
     aiohttp_jinja2.setup(app, loader=jinja2.PackageLoader('coordinator', 'templates'))
-
+    train.delay()
     app.on_shutdown.append(on_shutdown)
     return app
 

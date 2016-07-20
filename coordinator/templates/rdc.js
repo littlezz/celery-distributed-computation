@@ -9,10 +9,11 @@
     h = window.location.host;
     ws = new WebSocket("ws://" + h + "/ws_node_status");
     return ws.onmessage = function(e) {
-      var msg;
+      var msg, pert;
       msg = JSON.parse(e.data);
-      $('.chart').data('easyPieChart').update(msg.localhost);
-      $('#percent1').text(msg.localhost);
+      pert = msg.node_status.localhost;
+      $('.chart').data('easyPieChart').update(pert);
+      $('#percent1').text(pert);
       console.log(msg);
       return ws.send('alive');
     };

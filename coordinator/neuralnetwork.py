@@ -1,13 +1,10 @@
 import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.special import expit as sigmoid
-from itertools import chain
 from celerytask.celery import app, weights_name, one_lock
-from celery.contrib.methods import task_method, task
 from celery import chord, group
 from common.redis_cache import pickle_redis_cache, _pickle_get_pipe, _pickle_set_pipe
 from celerytask import cache, locks
-from collections import deque
 from common import get_random_string
 import random
 
@@ -251,7 +248,7 @@ class IntuitiveNeuralNetwork2(BaseNeuralNetwork):
 @app.task
 def train():
     N  = alias.N
-    parts = 50
+    parts = 20
     step = N // parts
     g = chord(_train.s(i, i+step) for i in range(0, step*parts, step))(train.si())
 
@@ -310,6 +307,7 @@ def _train(start, stop):
         alias.weights1 -= w1
         alias.weights10 -= w10
 
+    cache.incr('n_s', stop-start)
 
 
 @app.task
@@ -330,7 +328,7 @@ def update_cache_weight(key):
 one_lock.reset()
 from esl_model.datasets import ZipCodeDataSet
 d = ZipCodeDataSet()
-nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:3000], train_y=d.train_y[:3000], n_class=10, alpha=0.48)
+nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:400], train_y=d.train_y[:400], n_class=10, alpha=0.78)
 
 nn.pre_processing()
 
