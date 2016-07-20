@@ -2,13 +2,50 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.special import expit as sigmoid
 from itertools import chain
-from celerytask.celery import app
+from celerytask.celery import app, weights_name
 from celery.contrib.methods import task_method, task
 from celery import chord, group
 from common.redis_cache import pickle_redis_cache, _pickle_get_pipe, _pickle_set_pipe
-from celerytask import cache, lock
+from celerytask import cache, locks
 from collections import deque
+from common import get_random_string
+import random
 
+class CacheAlias:
+    train_x = pickle_redis_cache('train_x')
+    train_y = pickle_redis_cache('train_y')
+    weights = pickle_redis_cache('weights')
+    weights0 = pickle_redis_cache('weights0')
+    weights1 = pickle_redis_cache('weights1')
+    weights10 = pickle_redis_cache('weights10')
+    N = pickle_redis_cache('N')
+    alpha = pickle_redis_cache('alpha')
+    iter_time = pickle_redis_cache('iter_time')
+    
+    
+alias = CacheAlias()
+
+class WeightCache:
+    key = get_random_string()
+    weights = pickle_redis_cache('weights')
+    weights0 = pickle_redis_cache('weights0')
+    weights1 = pickle_redis_cache('weights1')
+    weights10 = pickle_redis_cache('weights10')
+
+
+
+
+
+class IntuitiveMethodRssMixin:
+    """
+    this class for fix the Intuitive Network class rss method.
+    """
+    @property
+    def rss(self):
+        eps = 1e-50
+        y = self._y_hat
+        y[y < eps] = eps
+        return - np.sum(np.log(y) * self.train_y)
 
 
 class Result:
@@ -66,10 +103,10 @@ class BaseStatModel:
             x = x / self._x_std_
         return x
 
-    @property
-    def N(self):
-        """number of N sample"""
-        return self._raw_train_x.shape[0]
+    # @property
+    # def N(self):
+    #     """number of N sample"""
+    #     return self._raw_train_x.shape[0]
 
     @property
     def p(self):
@@ -158,175 +195,142 @@ class BaseNeuralNetwork(ClassificationMixin, BaseStatModel):
         raise NotImplementedError
 
 
-class MiniBatchNeuralNetwork(BaseNeuralNetwork):
-    """
-    Depend on many book.
-    use mini batch update instead af batch update.
-
-    reference
-    ---------
-    http://ufldl.stanford.edu/wiki/index.php/Backpropagation_Algorithm
-    https://www.coursera.org/learn/machine-learning/lecture/1z9WW/backpropagation-algorithm
-    """
-
+class IntuitiveNeuralNetwork2(BaseNeuralNetwork):
     train_x = pickle_redis_cache('train_x')
     train_y = pickle_redis_cache('train_y')
-    thetas = pickle_redis_cache('thetas')
-    temp_thetas = pickle_redis_cache('temp_thetas')
-    mini_batch = pickle_redis_cache('mini_batch')
-    _raw_train_x = pickle_redis_cache('_raw_train_x')
-    _raw_train_y = pickle_redis_cache('_raw_train_y')
-
-    def __init__(self, *args, mini_batch=10, hidden_layer_shape=None, **kwargs):
-        self.mini_batch = mini_batch
-        self.hidden_layer_shape = hidden_layer_shape or list()
+    weights = pickle_redis_cache('weights')
+    weights0 = pickle_redis_cache('weights0')
+    weights1 = pickle_redis_cache('weights1')
+    weights10 = pickle_redis_cache('weights10')
+    N = pickle_redis_cache('N')
+    alpha = pickle_redis_cache('alpha')
+    iter_time = pickle_redis_cache('iter_time')
+    
+    def __init__(self, *args, hidden=12, iter_time=3,**kwargs):
+        self.hidden = hidden
+        self.iter_time = iter_time
         super().__init__(*args, **kwargs)
-
-    @staticmethod
-    def random_weight_matrix(shape):
-        return np.random.uniform(-0.7, 0.7, shape)
-
-
-    def _one_iter_train(self):
-        X = self.train_x
-        y = self.train_y
-        mini_batch = self.mini_batch
-        for j in range(0, self.N, mini_batch):
-            # x = X[j: j + mini_batch]
-            # target = y[j: j + mini_batch]
-            # layer_output = self._forward_propagation(x)
-            # self._back_propagation(target=target, layer_output=layer_output)
-
-            vals = group(self._one_forward_and_back.s(k) for k in range(j, j+mini_batch))()
-            print(vals.get())
-            cache.set('now', j)
-            task = self._sum_update.delay().get()
-            # r = self._one_forward_and_back(j)
-            # self._sum_update([j])
-            # print(self.add.s(3).delay().get())
-
-
-    @app.task(filter=task_method)
-    def _one_forward_and_back(self, k):
-        """
-        forward and back, return (grad, intercept)
-        """
-        x = self.train_x[k: k+1]
-        y = self.train_y[k: k+1]
-        layer_output = self._forward_propagation(x)
-        ret = self._back_propagation(layer_output=layer_output, target=y)
-        cache.set('grad'+str(k), _pickle_set_pipe(ret))
-        return k
-
-
-
-    @app.task(filter=task_method)
-    def _sum_update(self):
-        value = int(cache.get('now'))
-        values = range(value, value+self.mini_batch)
-        grads = []
-        for point  in values:
-            grads.append(_pickle_get_pipe(cache.get('grad' + str(point))))
-
-        new_thetas = []
-        for (theta, intercept), *i in zip(reversed(self.thetas), *grads):
-            tt = ti = 0
-            for (theta_i, intercept_i) in i:
-                tt+=theta_i
-                ti+=intercept_i
-            theta -= tt
-            intercept -= ti
-            new_thetas.append((theta, intercept))
-
-        self.thetas = list(reversed(new_thetas))
-
-    @app.task(filter=task_method)
-    def train(self):
-        self._init_theta()
-        for r in range(self.n_iter):
-            self._one_iter_train()
-
-    def predict(self, X: np.ndarray):
-        X = self._pre_processing_x(X)
-        y = self._forward_propagation(X)[-1]
-        return self._inverse_matrix_to_class(y)
+        self.N = self._raw_train_x.shape[0]
 
     @property
     def rss(self):
         eps = 1e-50
-        X = self._pre_processing_x(self._raw_train_x)
-        y = self._forward_propagation(X)[-1]
+        a2 = sigmoid(self._raw_train_x @ self.weights + self.weights0)
+        y = sigmoid(a2 @ self.weights1 + self.weights10)
         y[y < eps] = eps
         return - np.sum(np.log(y) * self.train_y)
 
-    def _init_theta(self):
-        """
-        theta is weights
-        init all theta, depend on hidden layer
-        :return: No return, store the result in self.thetas which is a list
-        """
-        thetas = []
-        input_dimension = self.train_x.shape[1]
-        for target_dimension in chain(self.hidden_layer_shape, [self.n_class]):
-            _theta = np.random.uniform(-0.7, 0.7, (input_dimension + 1, target_dimension))
-            theta = _theta[1:]
-            intercept = _theta[0]
-            thetas.append((theta, intercept))
-            input_dimension = target_dimension
-        self.thetas = thetas
+    def pre_processing(self):
+        super().pre_processing()
+        self._init_weights()
+        
+    def _init_weights(self):
+        _weights = np.random.uniform(-0.7, 0.7, (self.p + 1, self.hidden))
+        weights = _weights[1:]
+        weights0 = _weights[0]
+        _weights = np.random.uniform(-0.7, 0.7, (self.hidden + 1, self.n_class))
+        weights1 = _weights[1:]
+        weights10 = _weights[0]
+        self.weights = weights
+        self.weights0 = weights0
+        self.weights1 = weights1
+        self.weights10 = weights10
+        
 
-    def _forward_propagation(self, x):
-        a = x.copy()
-        layer_output = list()
-        layer_output.append(a)
-        for theta, intercept in self.thetas:
-            a = sigmoid(a @ theta + intercept)
-            layer_output.append(a)
-        return layer_output
 
-    def _back_propagation(self, target, layer_output):
-        delta = -(target - layer_output[-1])
+    def predict(self, X: np.ndarray):
+        X = self._pre_processing_x(X)
+        a2 = sigmoid(X @ self.weights + self.weights0)
+        y = sigmoid(a2 @ self.weights1 + self.weights10)
+        return self._inverse_matrix_to_class(y)
 
-        ret = []
-        # nn = deque()
-        for (theta, intercept), a in zip(reversed(self.thetas), reversed(layer_output[:-1])):
-            grad = a.T @ delta
-            intercept_grad = np.sum(delta, axis=0)
-            delta = ((1 - a) * a) * (delta @ theta.T)
-            theta -= grad * self.alpha / self.mini_batch
-            intercept -= intercept_grad * self.alpha / self.mini_batch
-            ret.append((grad * self.alpha / self.mini_batch, intercept_grad * self.alpha / self.mini_batch))
-            # nn.appendleft((grad * self.alpha / self.mini_batch, intercept_grad * self.alpha / self.mini_batch))
-            # new_thetas.append((theta, intercept))
+    @property
+    def y_hat(self):
+        return self.predict(self._raw_train_x)
 
-        # gg= []
-        # with lock:
-        #     thetas = self.thetas
-        #     for (theta, intercept), (dt, di) in zip(thetas, nn):
-        #         theta = theta - dt
-        #         intercept = intercept - di
-        #         gg.append((theta, intercept))
-        #     self.thetas = list(reversed(gg))
+@app.task
+def train():
+    N  = alias.N
+    step = N // 8
+    group(_train.s(i, i+step) for i in range(0, step*8, step))().get()
+    train.delay()
 
-        return ret
+@app.task
+def _train(start, stop):
+    X = alias.train_x
+    y = alias.train_y
+    N = stop-start
+    weights = alias.weights
+    weights0 = alias.weights0
+    weights1 = alias.weights1
+    weights10 = alias.weights10
+    alpha = alias.alpha
+
+    
+
+    w1 = np.zeros_like(weights1)
+    w10 = np.zeros_like(weights10)
+    w = np.zeros_like(weights)
+    w0 = np.zeros_like(weights0)
+
+    for i in range(start, stop):
+        x = X[i]
+        a1 = x
+        z2 = x @ weights + weights0
+        a2 = sigmoid(z2)
+        z3 = a2 @ weights1 + weights10
+        a3 = sigmoid(z3)
+
+        delta3 = -(y[i] - a3)
+        delta2 = weights1 @ delta3 * a2 * (1 - a2)
+
+        w1 += alpha * (a2[:, None] @ delta3[None, :])
+        w10 += alpha * delta3
+
+        w += alpha * (a1[:, None] @ delta2[None, :])
+        w0 += alpha * delta2
+
+    w0 /= N
+    w /= N
+    w10 /= N
+    w1 /= N
+    wc = WeightCache()
+    wc.weights = w
+    wc.weights0 = w0
+    wc.weights1 = w1
+    wc.weights10= w10
+    update_cache_weight.delay(wc.key)
+
+
+
+@app.task
+def update_cache_weight(key):
+    wc = WeightCache()
+    wc.key = key
+    l = list(zip(weights_name, locks))
+    random.shuffle(l)
+    for weight_name, lock in l:
+        with lock:
+            w = getattr(alias, weight_name)
+            wn = getattr(wc, weight_name)
+            setattr(alias, weight_name, w - wn)
 
 
 # _start = None
 #
-# from esl_model.datasets import ZipCodeDataSet
-# d = ZipCodeDataSet()
-# nn = MiniBatchNeuralNetwork(train_x=d.train_x, train_y=d.train_y, n_iter=50, n_class=10,
-#                           hidden_layer_shape=[12], mini_batch=20, alpha=0.38)
+from esl_model.datasets import ZipCodeDataSet
+d = ZipCodeDataSet()
+nn = IntuitiveNeuralNetwork2(train_x=d.train_x, train_y=d.train_y, n_class=10,alpha=0.38)
+
+nn.pre_processing()
+
+# def start_nn(wait=0):
+#     global _start
+#     if _start is not None:
+#         return _start
 #
-# nn.pre_processing()
-
-def start_nn(wait=0):
-    global _start
-    if _start is not None:
-        return _start
-
-    t = nn.train.delay()
-    if wait:
-        t.get()
-    _start = nn
-    return nn
+#     t = nn.train.delay()
+#     if wait:
+#         t.get()
+#     _start = nn
+#     return nn

@@ -5,7 +5,9 @@ from redis_lock import Lock
 
 cache = Redis()
 
-lock = Lock(cache, 'the-redis-lock')
+weights_name = ['weights', 'weights0', 'weights1', 'weights10']
+locks = [Lock(cache, 'lock' + wn) for wn in weights_name]
+one_lock = Lock(cache, 'the-lock')
 
 app = Celery('rdc', )
 app.config_from_object(celeryconfig)
