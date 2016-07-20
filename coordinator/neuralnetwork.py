@@ -2,7 +2,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.special import expit as sigmoid
 from itertools import chain
-from celerytask.celery import app, weights_name
+from celerytask.celery import app, weights_name, one_lock
 from celery.contrib.methods import task_method, task
 from celery import chord, group
 from common.redis_cache import pickle_redis_cache, _pickle_get_pipe, _pickle_set_pipe
@@ -251,15 +251,19 @@ class IntuitiveNeuralNetwork2(BaseNeuralNetwork):
 @app.task
 def train():
     N  = alias.N
-    step = N // 8
-    group(_train.s(i, i+step) for i in range(0, step*8, step))().get()
-    train.delay()
+    parts = 50
+    step = N // parts
+    g = chord(_train.s(i, i+step) for i in range(0, step*parts, step))(train.si())
+
+    # for j in range(500):
+    #     [_train(i, i + step)for i in range(0, step * parts, step)]
+    #     print(nn.rss)
 
 @app.task
 def _train(start, stop):
     X = alias.train_x
     y = alias.train_y
-    N = stop-start
+    N = alias.N
     weights = alias.weights
     weights0 = alias.weights0
     weights1 = alias.weights1
@@ -294,12 +298,17 @@ def _train(start, stop):
     w /= N
     w10 /= N
     w1 /= N
-    wc = WeightCache()
-    wc.weights = w
-    wc.weights0 = w0
-    wc.weights1 = w1
-    wc.weights10= w10
-    update_cache_weight.delay(wc.key)
+    # wc = WeightCache()
+    # wc.weights = w
+    # wc.weights0 = w0
+    # wc.weights1 = w1
+    # wc.weights10= w10
+    # update_cache_weight.delay(wc.key)
+    with one_lock:
+        alias.weights -= w
+        alias.weights0 -= w0
+        alias.weights1 -= w1
+        alias.weights10 -= w10
 
 
 
@@ -318,9 +327,10 @@ def update_cache_weight(key):
 
 # _start = None
 #
+one_lock.reset()
 from esl_model.datasets import ZipCodeDataSet
 d = ZipCodeDataSet()
-nn = IntuitiveNeuralNetwork2(train_x=d.train_x, train_y=d.train_y, n_class=10,alpha=0.38)
+nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:3000], train_y=d.train_y[:3000], n_class=10, alpha=0.48)
 
 nn.pre_processing()
 
