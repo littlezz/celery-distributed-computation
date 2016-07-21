@@ -3,7 +3,7 @@ from celery import Celery
 from redis import Redis
 from redis_lock import Lock
 
-cache = Redis()
+cache = Redis.from_url(celeryconfig.CELERY_RESULT_BACKEND)
 
 weights_name = ['weights', 'weights0', 'weights1', 'weights10']
 locks = [Lock(cache, 'lock' + wn) for wn in weights_name]
