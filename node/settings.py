@@ -1,3 +1,3 @@
-COORDINATOR_SERVER_URL = 'ws://localhost:8080/ws_receive_node_status'
+COORDINATOR_SERVER_URL = 'ws://192.168.2.104:8080/ws_receive_node_status'
 
 PERIOD_UPDATE = 2
