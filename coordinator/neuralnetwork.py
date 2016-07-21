@@ -248,7 +248,7 @@ class IntuitiveNeuralNetwork2(BaseNeuralNetwork):
 @app.task
 def train():
     N  = alias.N
-    parts = 20
+    parts = 10
     step = N // parts
     g = chord(_train.s(i, i+step) for i in range(0, step*parts, step))(train.si())
 
@@ -301,34 +301,38 @@ def _train(start, stop):
     # wc.weights1 = w1
     # wc.weights10= w10
     # update_cache_weight.delay(wc.key)
-    with one_lock:
-        alias.weights -= w
-        alias.weights0 -= w0
-        alias.weights1 -= w1
-        alias.weights10 -= w10
+    # with one_lock:
+    alias.weights -= w
+    alias.weights0 -= w0
+    alias.weights1 -= w1
+    alias.weights10 -= w10
 
     cache.incr('n_s', stop-start)
 
 
-@app.task
-def update_cache_weight(key):
-    wc = WeightCache()
-    wc.key = key
-    l = list(zip(weights_name, locks))
-    random.shuffle(l)
-    for weight_name, lock in l:
-        with lock:
-            w = getattr(alias, weight_name)
-            wn = getattr(wc, weight_name)
-            setattr(alias, weight_name, w - wn)
+# @app.task
+# def update_cache_weight(key):
+#     import time
+#     # s = random.random() * 1.5
+#     # time.sleep(s)
+#     wc = WeightCache()
+#     wc.key = key
+#     l = list(zip(weights_name, locks))
+#     random.shuffle(l)
+#     for weight_name, lock in l:
+#         # with lock:
+#         w = getattr(alias, weight_name)
+#         wn = getattr(wc, weight_name)
+#         setattr(alias, weight_name, w - wn)
 
 
 # _start = None
 #
-one_lock.reset()
+# one_lock.reset()
+# [lock.reset() for lock in locks]
 from esl_model.datasets import ZipCodeDataSet
 d = ZipCodeDataSet()
-nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:400], train_y=d.train_y[:400], n_class=10, alpha=0.78)
+nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:320], train_y=d.train_y[:320], n_class=10, alpha=0.58)
 
 nn.pre_processing()
 
