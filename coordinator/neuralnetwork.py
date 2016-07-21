@@ -332,7 +332,7 @@ def _train(start, stop):
 # [lock.reset() for lock in locks]
 from esl_model.datasets import ZipCodeDataSet
 d = ZipCodeDataSet()
-nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:220], train_y=d.train_y[:220], n_class=10, alpha=0.58)
+nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:200], train_y=d.train_y[:200], n_class=10, alpha=0.28)
 
 nn.pre_processing()
 
