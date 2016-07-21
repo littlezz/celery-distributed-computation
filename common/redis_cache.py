@@ -2,7 +2,7 @@ from celerytask import cache
 import pickle
 import zlib
 
-compress_level = 1
+compress_level = 7
 
 def _pickle_set_pipe(value):
     s = pickle.dumps(value)
