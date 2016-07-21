@@ -46,8 +46,8 @@ $ ->
       $('#'+name).easyPieChart({
             animate: 600,
             size:200,
-            barColor:'#ef1e25',
-            lineWidth:5,
+            barColor:'#ffff00',
+            lineWidth:10,
 
         });
 
