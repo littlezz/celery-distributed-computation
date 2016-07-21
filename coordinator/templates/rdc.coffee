@@ -44,10 +44,10 @@ $ ->
     do (name) ->
 
       $('#'+name).easyPieChart({
-            animate: 600,
+            animate: 1200,
             size:200,
-            barColor:'#ffff00',
-            lineWidth:10,
+            barColor:'#ef1e25',
+            lineWidth:9,
 
         });
 
