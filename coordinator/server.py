@@ -10,7 +10,6 @@ from common.decorator import set_debug
 from .setttings import *
 from celerytask.celery import cache, app as celery_app
 from .neuralnetwork import nn, train
-from PIL import Image
 import logging
 logger = logging.getLogger('coordinator')
 
@@ -93,22 +92,7 @@ async def start_task(request):
     pass
 
 
-async def upload_image(request):
-    data = await request.post()
 
-    file = data['image'].file
-    img = Image.open(file)
-    print(img.size)
-
-    # process image
-    gray = img.resize((16, 16)).convert('L')
-
-
-    # TODO: submit task
-
-
-
-    return web.Response(text='ok size {}'.format(img.size))
 
 
 async def update_coordinator_cpu_info(node_status):
