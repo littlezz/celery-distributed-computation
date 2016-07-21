@@ -1,4 +1,9 @@
 
+body {
+    background-image: url("bg.jpg");
+    background-color: #cccccc;
+}
+
 .chart {
   position: relative;
   display: inline-block;
