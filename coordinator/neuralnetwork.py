@@ -250,7 +250,8 @@ def train():
     N  = alias.N
     parts = 10
     step = N // parts
-    g = chord(_train.s(i, i+step) for i in range(0, step*parts, step))(train.si())
+    g = group(_train.s(i, i+step) for i in range(0, step*parts, step))()
+    train.delay()
 
     # for j in range(500):
     #     [_train(i, i + step)for i in range(0, step * parts, step)]
