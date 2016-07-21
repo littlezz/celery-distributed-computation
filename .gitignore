@@ -2,3 +2,5 @@
 *.py[cd]
 justtest.py
 .DS_Store
+*.log
+*.rdb
