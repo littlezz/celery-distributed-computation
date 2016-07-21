@@ -5,3 +5,5 @@ NODE_MAP = {
 }
 
 STATIC_NODE_HOSTS = NODE_MAP.keys()
+
+PERIOD_UPDATE = 2.5

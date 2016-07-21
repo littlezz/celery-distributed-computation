@@ -72,7 +72,7 @@ async def ws_node_status(request):
 
     try:
         async for m in ws:
-            await asyncio.sleep(1)
+            await asyncio.sleep(PERIOD_UPDATE)
             ws.send_str(_structure_msg())
         logger.debug('finish connect')
 
@@ -99,19 +99,27 @@ async def update_coordinator_cpu_info(node_status):
     while True:
         cpu_info = psutil.cpu_percent()
         node_status.update({LOCALHOST:cpu_info})
-        await asyncio.sleep(1)
+        await asyncio.sleep(PERIOD_UPDATE)
 
 
 async def update_nn_status(app):
-    old = int(cache.get('n_s'))
+
+    def get_value():
+        _v = cache.get('n_s')
+        if _v:
+            return int(cache.get('n_s'))
+        else:
+            return 0
+
+    old = get_value()
     nn_status = app['nn_status']
     while True:
-        new = int(cache.get('n_s'))
-        speed = (new - old) / 2
+        new = get_value()
+        speed = (new - old) / 3
         nn_status.update(dict(speed=speed, rss=nn.rss))
         logger.debug(':nn_status %s', nn_status)
         old = new
-        await asyncio.sleep(1.99)
+        await asyncio.sleep(2.99)
 
 
 

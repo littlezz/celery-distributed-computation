@@ -18,7 +18,7 @@ async def send_status(ws):
         except RuntimeError:
             logger.info('server shutdown, return')
             return
-        await asyncio.sleep(1)
+        await asyncio.sleep(PERIOD_UPDATE)
 
 
 # reference http://aiohttp.readthedocs.io/en/stable/client.html#websockets
