@@ -9,7 +9,7 @@ import jinja2
 from common.decorator import set_debug
 from .setttings import *
 from celerytask.celery import cache, app as celery_app
-from .neuralnetwork import nn, train
+from .neuralnetwork import train, get_nn
 import logging
 logger = logging.getLogger('coordinator')
 
@@ -102,7 +102,7 @@ async def update_coordinator_cpu_info(node_status):
         await asyncio.sleep(PERIOD_UPDATE)
 
 
-async def update_nn_status(app):
+async def update_nn_status(app, nn):
 
     def get_value():
         _v = cache.get('n_s')
@@ -156,9 +156,10 @@ def init_app():
     app['node_ws_manager'] = dict()
     app['nn_status'] = dict()
 
+    nn = get_nn()
     long_run_tasks = list()
     long_run_tasks.append(app.loop.create_task(update_coordinator_cpu_info(node_status)))
-    long_run_tasks.append(app.loop.create_task(update_nn_status(app)))
+    long_run_tasks.append(app.loop.create_task(update_nn_status(app, nn)))
     app['long_run_tasks'] = long_run_tasks
 
     aiohttp_jinja2.setup(app, loader=jinja2.PackageLoader('coordinator', 'templates'))

@@ -330,11 +330,13 @@ def _train(start, stop):
 #
 # one_lock.reset()
 # [lock.reset() for lock in locks]
-from esl_model.datasets import ZipCodeDataSet
-d = ZipCodeDataSet()
-nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:200], train_y=d.train_y[:200], n_class=10, alpha=0.28)
+def get_nn():
+    from esl_model.datasets import ZipCodeDataSet
+    d = ZipCodeDataSet()
+    nn = IntuitiveNeuralNetwork2(train_x=d.train_x[:200], train_y=d.train_y[:200], n_class=10, alpha=0.28)
 
-nn.pre_processing()
+    nn.pre_processing()
+    return nn
 
 # def start_nn(wait=0):
 #     global _start
