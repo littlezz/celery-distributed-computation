@@ -13,7 +13,6 @@ kombu
 MarkupSafe
 numpy
 pandas
-Pillow
 psutil
 python-dateutil
 python-redis-lock
