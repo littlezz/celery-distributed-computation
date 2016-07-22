@@ -4,3 +4,4 @@ justtest.py
 .DS_Store
 *.log
 *.rdb
+*.pid
