@@ -3,4 +3,4 @@ server:
 
 nodes:
 	celery multi restart 4 -A celerytask
-	python3 manager.py node
+	python3 manage.py node
